@@ -1,1 +1,1 @@
-This is a Lighbm  and Random Forest model that does sales prediction by fetching realtime data. The user enter the name of the products it`s sales for the past 4 months the it predicts it`s sales for the next 3 months using the realtime data fetched 
+
