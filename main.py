@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # API credentials
-API_KEY = 'AIzaSyAZSVl1v0lbkm9ldx-skUzVmbsnMCcdx3M'
+API_KEY = 'AIzaSyBWq6X2brvlDmLPOHZ31q340Cehb53UD9Y'
 SEARCH_ENGINE_IDS = [
     '438ca7820aa8e478e',
     '2419aa9656883446d',
