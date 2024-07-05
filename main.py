@@ -1,3 +1,4 @@
+import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
@@ -8,7 +9,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import logging
 import re
-import streamlit as st
+import json
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -29,6 +31,44 @@ SEARCH_ENGINE_IDS = [
     'f15af5e48a15f40de'
 ]
 
+# File path for user credentials
+USER_CREDENTIALS_FILE = 'user_credentials.json'
+
+# File path for prediction history (JSON format)
+PREDICTION_HISTORY_FILE = 'prediction_history.json'
+
+# Load user credentials from JSON file
+def load_user_credentials():
+    if os.path.exists(USER_CREDENTIALS_FILE):
+        with open(USER_CREDENTIALS_FILE, 'r') as f:
+            return json.load(f)
+    return {'admin': 'admin123'}  # Default admin credentials
+
+user_credentials = load_user_credentials()
+
+# Load prediction history from JSON file
+if os.path.exists(PREDICTION_HISTORY_FILE):
+    with open(PREDICTION_HISTORY_FILE, 'r') as f:
+        prediction_history = json.load(f)
+else:
+    prediction_history = {}
+
+def save_user_credentials():
+    with open(USER_CREDENTIALS_FILE, 'w') as f:
+        json.dump(user_credentials, f, indent=4)
+
+def save_prediction_result(username, product_name, sales_predictions):
+    if username not in prediction_history:
+        prediction_history[username] = []
+
+    prediction_history[username].append({
+        'product_name': product_name,
+        'sales_predictions': sales_predictions
+    })
+
+    # Save updated prediction history to JSON file
+    with open(PREDICTION_HISTORY_FILE, 'w') as f:
+        json.dump(prediction_history, f, indent=4)
 
 def fetch_realtime_data(query, search_engine_ids):
     results = []
@@ -63,7 +103,6 @@ def fetch_realtime_data(query, search_engine_ids):
 
     return pd.DataFrame(results)
 
-
 def extract_sales_data(snippet):
     try:
         sales_pattern = r'\$?(\d+(?:,\d{3})*(?:\.\d{1,2})?)'
@@ -73,7 +112,6 @@ def extract_sales_data(snippet):
     except ValueError:
         return None
 
-
 def preprocess_data(data):
     try:
         processed_data = data.drop(columns=['product_name', 'realtime_feature', 'cx'])
@@ -82,7 +120,6 @@ def preprocess_data(data):
     except Exception as e:
         logging.error(f"Error preprocessing data: {e}")
         return None
-
 
 def train_lgb_model(data, target_variable):
     try:
@@ -100,7 +137,6 @@ def train_lgb_model(data, target_variable):
         logging.error(f"Error training LightGBM model: {e}")
         return None, None, None, None, None
 
-
 def train_rf_model(data, target_variable):
     try:
         X = data[['sales_m1', 'sales_m2', 'sales_m3', 'sales_m4']]
@@ -117,7 +153,6 @@ def train_rf_model(data, target_variable):
         logging.error(f"Error training Random Forest model: {e}")
         return None, None, None, None, None
 
-
 def save_model(model, filename):
     try:
         with open(filename, 'wb') as f:
@@ -125,7 +160,6 @@ def save_model(model, filename):
         logging.info(f"Trained model saved to {filename}")
     except Exception as e:
         logging.error(f"Error saving model: {e}")
-
 
 def predict_sales(sales_m1, sales_m2, sales_m3, sales_m4, model):
     try:
@@ -141,7 +175,6 @@ def predict_sales(sales_m1, sales_m2, sales_m3, sales_m4, model):
         logging.error(f"Error predicting sales: {e}")
         return [None, None, None]
 
-
 def visualize_sales_prediction(predictions, month_names):
     months = month_names
     plt.figure(figsize=(10, 6))
@@ -153,89 +186,182 @@ def visualize_sales_prediction(predictions, month_names):
     plt.xticks(months)
     st.pyplot(plt)
 
+def show_history():
+    st.subheader("Prediction History")
+
+    if st.session_state.username in prediction_history and prediction_history[st.session_state.username]:
+        for idx, prediction in enumerate(prediction_history[st.session_state.username]):
+            st.write(f"Prediction {idx + 1}:")
+            st.write(f"Product Name: {prediction['product_name']}")
+            st.write("Sales Predictions:")
+            st.write(prediction['sales_predictions'])
+            st.markdown("---")
+    else:
+        st.write("No prediction history available.")
 
 def main():
     st.title("Real-time Sales Prediction")
 
-    product_name = st.text_input("Enter product name:").strip()
-    sales_m1 = st.text_input("Enter sales for month 1:").strip()
-    sales_m2 = st.text_input("Enter sales for month 2:").strip()
-    sales_m3 = st.text_input("Enter sales for month 3:").strip()
-    sales_m4 = st.text_input("Enter sales for month 4:").strip()
+    # Initialize session state
+    if 'page' not in st.session_state:
+        st.session_state.page = 'login'
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+    if 'username' not in st.session_state:
+        st.session_state.username = ""
 
-    if st.button("Predict Sales"):
-        if not (product_name and sales_m1 and sales_m2 and sales_m3 and sales_m4):
-            st.error("Please enter all the required fields.")
-            return
+    def login(username):
+        st.session_state.logged_in = True
+        st.session_state.username = username
+        st.session_state.page = 'predict'
 
-        query = f"{product_name} sales data"
-        realtime_data = fetch_realtime_data(query, SEARCH_ENGINE_IDS)
+    def logout():
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.session_state.page = 'login'
 
-        if realtime_data.empty:
-            st.error("No data fetched from API.")
-            return
+    def register_user(username, password):
+        if username in user_credentials:
+            st.error("Username already exists.")
+        else:
+            user_credentials[username] = password
+            save_user_credentials()  # Save updated credentials to file
+            st.success("User registered successfully. Please log in.")
 
-        processed_data = preprocess_data(realtime_data)
+    def show_history_sidebar():
+        st.sidebar.subheader("User Actions")
+        if st.sidebar.button("View Prediction History"):
+            st.session_state.page = 'history'
 
-        if processed_data is None or processed_data.empty:
-            st.error("No data to preprocess.")
-            return
+    def show_register():
+        st.session_state.page = 'register'
 
-        target_variable = 'sales_m4'
+    def show_login():
+        st.session_state.page = 'login'
 
-        lgb_model, lgb_mae, lgb_mse, lgb_rmse, lgb_r2 = train_lgb_model(processed_data, target_variable)
+    if st.session_state.page == 'register':
+        st.subheader("Register")
+        new_username = st.text_input("New Username")
+        new_password = st.text_input("New Password", type='password')
 
-        if lgb_model is None:
-            st.error("LightGBM model training was unsuccessful.")
-            return
+        if st.button("Register"):
+            register_user(new_username, new_password)
+            # Reload user credentials after registration
+            global user_credentials
+            user_credentials = load_user_credentials()
+            show_login()
 
-        save_model(lgb_model, 'trained_lgb_model.pkl')
+        if st.button("Back to Login"):
+            show_login()
 
-        future_sales_lgb = predict_sales(
-            sales_m1,
-            sales_m2,
-            sales_m3,
-            sales_m4,
-            lgb_model
-        )
+    elif st.session_state.page == 'login':
+        st.subheader("Login")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type='password')
 
-        if any(future_sales_lgb_item is None for future_sales_lgb_item in future_sales_lgb):
-            st.error("Failed to predict future sales with LightGBM model.")
-            return
+        if st.button("Login"):
+            if username in user_credentials and user_credentials[username] == password:
+                login(username)
+            else:
+                st.error("Invalid username or password.")
 
-        st.subheader("Predicted Sales for next 3 months (LightGBM):")
-        st.write(future_sales_lgb)
+        if st.button("Register"):
+            show_register()
 
-        visualize_sales_prediction(future_sales_lgb, ['Month 2', 'Month 3', 'Month 4'])
+    elif st.session_state.page == 'predict' and st.session_state.logged_in:
+        st.write(f"Welcome, {st.session_state.username}!")
+        if st.button("Logout"):
+            logout()
 
-        rf_model, rf_mae, rf_mse, rf_rmse, rf_r2 = train_rf_model(processed_data, target_variable)
+        product_name = st.text_input("Enter product name:").strip()
+        sales_m1 = st.text_input("Enter sales for month 1:").strip()
+        sales_m2 = st.text_input("Enter sales for month 2:").strip()
+        sales_m3 = st.text_input("Enter sales for month 3:").strip()
+        sales_m4 = st.text_input("Enter sales for month 4:").strip()
 
-        if rf_model is None:
-            st.error("Random Forest model training was unsuccessful.")
-            return
+        if st.button("Predict Sales"):
+            if not (product_name and sales_m1 and sales_m2 and sales_m3 and sales_m4):
+                st.error("Please enter all the required fields.")
+                return
 
-        save_model(rf_model, 'trained_rf_model.pkl')
+            query = f"{product_name} sales data"
+            realtime_data = fetch_realtime_data(query, SEARCH_ENGINE_IDS)
 
-        future_sales_rf = predict_sales(
-            sales_m1,
-            sales_m2,
-            sales_m3,
-            sales_m4,
-            rf_model
-        )
+            if realtime_data.empty:
+                st.error("No data fetched from API.")
+                return
 
-        if any(future_sales_rf_item is None for future_sales_rf_item in future_sales_rf):
-            st.error("Failed to predict future sales with Random Forest model.")
-            return
+            processed_data = preprocess_data(realtime_data)
 
-        st.subheader("Predicted Sales for next 3 months (Random Forest):")
-        st.write(future_sales_rf)
+            if processed_data is None or processed_data.empty:
+                st.error("No data to preprocess.")
+                return
 
-        visualize_sales_prediction(future_sales_rf, ['Month 2', 'Month 3', 'Month 4'])
+            target_variable = 'sales_m4'
 
+            lgb_model, lgb_mae, lgb_mse, lgb_rmse, lgb_r2 = train_lgb_model(processed_data, target_variable)
+
+            if lgb_model is None:
+                st.error("LightGBM model training was unsuccessful.")
+                return
+
+            save_model(lgb_model, 'trained_lgb_model.pkl')
+
+            future_sales_lgb = predict_sales(
+                sales_m1,
+                sales_m2,
+                sales_m3,
+                sales_m4,
+                lgb_model
+            )
+
+            if any(future_sales_lgb_item is None for future_sales_lgb_item in future_sales_lgb):
+                st.error("Failed to predict future sales with LightGBM model.")
+                return
+
+            st.subheader("Predicted Sales for next 3 months (LightGBM):")
+            st.write(future_sales_lgb)
+
+            visualize_sales_prediction(future_sales_lgb, ['Month 2', 'Month 3', 'Month 4'])
+
+            rf_model, rf_mae, rf_mse, rf_rmse, rf_r2 = train_rf_model(processed_data, target_variable)
+
+            if rf_model is None:
+                st.error("Random Forest model training was unsuccessful.")
+                return
+
+            save_model(rf_model, 'trained_rf_model.pkl')
+
+            future_sales_rf = predict_sales(
+                sales_m1,
+                sales_m2,
+                sales_m3,
+                sales_m4,
+                rf_model
+            )
+
+            if any(future_sales_rf_item is None for future_sales_rf_item in future_sales_rf):
+                st.error("Failed to predict future sales with Random Forest model.")
+                return
+
+            st.subheader("Predicted Sales for next 3 months (Random Forest):")
+            st.write(future_sales_rf)
+
+            visualize_sales_prediction(future_sales_rf, ['Month 2', 'Month 3', 'Month 4'])
+
+            save_prediction_result(st.session_state.username, product_name, {
+                'LightGBM': future_sales_lgb,
+                'Random Forest': future_sales_rf
+            })
+
+            show_history_sidebar()
+
+    elif st.session_state.page == 'history' and st.session_state.logged_in:
+        show_history()
 
 if __name__ == "__main__":
     main()
+
 
 
 
