@@ -1,0 +1,11 @@
+aiohttp
+beautifulsoup4
+pandas
+scikit-learn
+joblib
+matplotlib
+seaborn
+requests
+ipywidgets streamlit
+streamlit_jupyter
+ lightgbm
