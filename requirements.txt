@@ -6,6 +6,6 @@ joblib
 matplotlib
 seaborn
 requests
-ipywidgets streamlit
+ipywidgets
 streamlit_jupyter
  lightgbm
