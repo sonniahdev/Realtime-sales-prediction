@@ -233,10 +233,5 @@ def main():
 
         visualize_sales_prediction(future_sales_rf, ['Month 2', 'Month 3', 'Month 4'])
 
-
 if __name__ == "__main__":
-<<<<<<< HEAD
     main()
-=======
-    main()
->>>>>>> ce90b4016eda9d075a791835433a509549338ba1
