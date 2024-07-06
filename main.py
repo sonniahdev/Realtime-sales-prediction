@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # API credentials
-API_KEY = 'AIzaSyBWq6X2brvlDmLPOHZ31q340Cehb53UD9Y'
+API_KEY = 'AIzaSyB0vFq9SH8IO0-4adNMRTYFeCsD0tPpYjE'
 SEARCH_ENGINE_IDS = [
     '438ca7820aa8e478e',
     '2419aa9656883446d',
@@ -103,11 +103,11 @@ def train_lgb_model(data, target_variable):
 
 def train_rf_model(data, target_variable):
     try:
-        X = data[['sales_m1', 'sales_m2', 'sales_m3', 'sales_m4']]
+        x = data[['sales_m1', 'sales_m2', 'sales_m3', 'sales_m4']]
         y = data[target_variable]
         model = RandomForestRegressor()
-        model.fit(X, y)
-        predictions = model.predict(X)
+        model.fit(x, y)
+        predictions = model.predict(x)
         mae = mean_absolute_error(y, predictions)
         mse = mean_squared_error(y, predictions)
         rmse = np.sqrt(mse)
@@ -236,11 +236,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
