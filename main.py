@@ -29,6 +29,7 @@ SEARCH_ENGINE_IDS = [
     'f15af5e48a15f40de'
 ]
 
+
 def fetch_realtime_data(query, search_engine_ids):
     results = []
     for cx in search_engine_ids:
@@ -57,16 +58,11 @@ def fetch_realtime_data(query, search_engine_ids):
                             'cx': cx
                         }
                         results.append(data)
-            else:
-                logging.error(f"No 'items' found in the API response for search engine ID: {cx}")
         except requests.exceptions.RequestException as e:
-            logging.error(f"Error fetching data from API for search engine ID {cx}: {str(e)}")
-        except Exception as e:
-            logging.error(f"Unexpected error while fetching data from API for search engine ID {cx}: {str(e)}")
+            logging.error(f"Error fetching data from API: {str(e)}")
 
-    if not results:
-        logging.error("No data fetched from any of the search engine IDs.")
     return pd.DataFrame(results)
+
 
 def extract_sales_data(snippet):
     try:
@@ -77,6 +73,7 @@ def extract_sales_data(snippet):
     except ValueError:
         return None
 
+
 def preprocess_data(data):
     try:
         processed_data = data.drop(columns=['product_name', 'realtime_feature', 'cx'])
@@ -85,6 +82,7 @@ def preprocess_data(data):
     except Exception as e:
         logging.error(f"Error preprocessing data: {e}")
         return None
+
 
 def train_lgb_model(data, target_variable):
     try:
@@ -102,6 +100,7 @@ def train_lgb_model(data, target_variable):
         logging.error(f"Error training LightGBM model: {e}")
         return None, None, None, None, None
 
+
 def train_rf_model(data, target_variable):
     try:
         x = data[['sales_m1', 'sales_m2', 'sales_m3', 'sales_m4']]
@@ -118,6 +117,7 @@ def train_rf_model(data, target_variable):
         logging.error(f"Error training Random Forest model: {e}")
         return None, None, None, None, None
 
+
 def save_model(model, filename):
     try:
         with open(filename, 'wb') as f:
@@ -125,6 +125,7 @@ def save_model(model, filename):
         logging.info(f"Trained model saved to {filename}")
     except Exception as e:
         logging.error(f"Error saving model: {e}")
+
 
 def predict_sales(sales_m1, sales_m2, sales_m3, sales_m4, model):
     try:
@@ -140,6 +141,7 @@ def predict_sales(sales_m1, sales_m2, sales_m3, sales_m4, model):
         logging.error(f"Error predicting sales: {e}")
         return [None, None, None]
 
+
 def visualize_sales_prediction(predictions, month_names):
     months = month_names
     plt.figure(figsize=(10, 6))
@@ -150,6 +152,7 @@ def visualize_sales_prediction(predictions, month_names):
     plt.grid(True)
     plt.xticks(months)
     st.pyplot(plt)
+
 
 def main():
     st.title("Real-time Sales Prediction")
